@@ -11,6 +11,6 @@ mentor or mentee.
 
 After the csv has been cleaned, run the actuall matching algorithm (notes/details in the notes folder)
 
-`python apsa_mentor_mentee_matching.py`
+`python apsa_mentor_mentee_matching.py mentee.csv mentor.csv`
 
 The code is not optimized, but we only run on a few hundred mentors/mentees, so it'll run quickly.

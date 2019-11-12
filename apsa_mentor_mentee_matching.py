@@ -8,12 +8,12 @@ zipsearch = SearchEngine(simple_zipcode=True)
 
 #
 # Command to run (assuming files present in same folder) is
-# 	python3 apsa_mentor_mentee_matching.py 
+# 	python3 apsa_mentor_mentee_matching.py mentee.csv mentor.csv
 #
 #
 # Assumptions
 # 1. No duplicates (prefilter these), clean emails and zip codes...
-#    see clean_up_datasheet.py code 
+#    see clean_up_datasheet.py code
 #
 
 # What tags are
@@ -32,12 +32,15 @@ TAG_1GEN ='Are you a first-generation college student in your family?'
 TAG_2MENTEE ='How many undergraduate students would you be willing to mentor?'
 
 
+equivalentZipCodes = {}
+equivalentZipCodes['20819'] = '20892'
 
-
+errorZipCodes = {}
+#errorZipCodes[''] = {'state':,'city':''}
 
 
 # convert state to APSA region
-southeast_states = set(['AL','AR','FL','GA','KY','LA','MS','NC','SC','TN','VA','WV'])
+southeast_states = set(['AL','AR','FL','GA','KY','LA','MS','NC','SC','TN','VA','WV', 'PR'])
 midwest_states = set(['IL','IN','IA','KS','MI','MN','MO','NE','ND','OH','SD','WI'])
 northeast_states = set(['CT','DE','ME','MD','MA','NH','NJ','NY','PA','RI','VT','DC'])
 mountain_states = set(['CO','ID','MT','NV','UT','WY'])
@@ -56,7 +59,7 @@ def getAPSARegionFromState(state):
 		return 'West'
 	if state in south_states:
 		return 'South'
-	print "state err", state
+	print ("state err", state)
 	return null
 
 def getUSHalfFromRegion(region):
@@ -91,7 +94,7 @@ def select_mentor(potential_mentors_list, tags_to_avoid, student, allow_dual_men
 # actual matching using mentor/mentee lists, specified categories, and option for using dual mentor
 def match_on_key(mentors, mentees, new_key_list, tags_to_avoid, allow_dual_mentor):
 	potential_mentors = {}
-	
+
 	# find mentors with no students
 	for mentor in mentors:
 		if(mentor['link']=='none'):
@@ -141,12 +144,28 @@ def parse_worksheet_from_csv(filepath, is_mentor_sheet):
 			new_member['income'] = row[TAG_INCOME].lower()
 			#myzip = zipcode.isequal(row[TAG_ZIP].lower().strip())
 			new_member['zip'] = row[TAG_ZIP].lower().strip()
+			if(new_member['zip'] in equivalentZipCodes):
+				new_member['zip'] = equivalentZipCodes[new_member['zip']]
 			new_member['school'] = row[TAG_SCHOOL].lower().strip()
 			zipcode = zipsearch.by_zipcode(new_member['zip'])
-			new_member['region'] = getAPSARegionFromState(zipcode.state_abbr)
-			new_member['ushalf'] = getUSHalfFromRegion(new_member['region'])
-			new_member['state'] = zipcode.state_abbr
-			new_member['city'] = zipcode.major_city
+			if(new_member['zip'] in errorZipCodes):
+				new_member['region'] = getAPSARegionFromState(errorZipCodes[new_member['zip']]['state'])
+				new_member['ushalf'] = getUSHalfFromRegion(new_member['region'])
+				new_member['state'] = errorZipCodes[new_member['zip']]['state']
+				new_member['city'] = errorZipCodes[new_member['zip']]['state']
+			else:
+				try:
+					new_member['region'] = getAPSARegionFromState(zipcode.state_abbr)
+					new_member['ushalf'] = getUSHalfFromRegion(new_member['region'])
+					new_member['state'] = zipcode.state_abbr
+					new_member['city'] = zipcode.major_city
+				except Exception as e:
+					print('Invalid zip', new_member['zip'], name)
+					new_member['region'] = 'NA'
+					new_member['ushalf'] = 'NA'
+					new_member['state'] = 'NA'
+					new_member['city'] = 'NA'
+
 			new_member['gender'] = row[TAG_GENDER].lower()
 			new_member['link'] = 'none'
 
@@ -170,10 +189,10 @@ def parse_worksheet_from_csv(filepath, is_mentor_sheet):
 # read data
 # build dictionary of mentees and mentors
 
-print "parse mentees"
+print("parse mentees")
 mentees = parse_worksheet_from_csv(sys.argv[1], False)
 
-print "parse mentors"
+print("parse mentors")
 mentors = parse_worksheet_from_csv(sys.argv[2], True)
 
 
@@ -207,15 +226,15 @@ match_on_key(mentors, mentees, new_key_list, dont_match_list, False)
 new_key_list = ['state']
 match_on_key(mentors, mentees, new_key_list, dont_match_list, False)
 new_key_list = ['region']
-match_on_key(mentors, mentees, new_key_list, dont_match_list, False)	
+match_on_key(mentors, mentees, new_key_list, dont_match_list, False)
 new_key_list = ['ushalf','first-gen']
-match_on_key(mentors, mentees, new_key_list, dont_match_list, False)	
+match_on_key(mentors, mentees, new_key_list, dont_match_list, False)
 new_key_list = ['ushalf','income']
-match_on_key(mentors, mentees, new_key_list, dont_match_list, False)	
+match_on_key(mentors, mentees, new_key_list, dont_match_list, False)
 new_key_list = ['first-gen']
-match_on_key(mentors, mentees, new_key_list, dont_match_list, False)	
+match_on_key(mentors, mentees, new_key_list, dont_match_list, False)
 new_key_list = ['income']
-match_on_key(mentors, mentees, new_key_list, dont_match_list, False)	
+match_on_key(mentors, mentees, new_key_list, dont_match_list, False)
 
 ### this is the actual algorithm describes; allows the possibility of dual mentors
 ### runs through all categories with possibility of dual mentors
@@ -245,15 +264,15 @@ match_on_key(mentors, mentees, new_key_list, dont_match_list, True)
 new_key_list = ['state']
 match_on_key(mentors, mentees, new_key_list, dont_match_list, True)
 new_key_list = ['region']
-match_on_key(mentors, mentees, new_key_list, dont_match_list, True)	
+match_on_key(mentors, mentees, new_key_list, dont_match_list, True)
 new_key_list = ['ushalf','first-gen']
-match_on_key(mentors, mentees, new_key_list, dont_match_list, True)	
+match_on_key(mentors, mentees, new_key_list, dont_match_list, True)
 new_key_list = ['ushalf','income']
-match_on_key(mentors, mentees, new_key_list, dont_match_list, True)	
+match_on_key(mentors, mentees, new_key_list, dont_match_list, True)
 new_key_list = ['first-gen']
-match_on_key(mentors, mentees, new_key_list, dont_match_list, True)	
+match_on_key(mentors, mentees, new_key_list, dont_match_list, True)
 new_key_list = ['income']
-match_on_key(mentors, mentees, new_key_list, dont_match_list, True)	
+match_on_key(mentors, mentees, new_key_list, dont_match_list, True)
 
 
 # some stats
@@ -279,10 +298,9 @@ print("Num of mentors without student is "+str(num_mentors_with_no_student) )
 print("Num of dual mentors is "+str(num_mentors_with_2_students) )
 
 
-output_file = open("student_to_mentor_match_none_left_behind.tsv","w") 
-output_file.write("Student name\tEmail\tMentor Name\tEmail\n") 
+output_file = open("student_to_mentor_match_none_left_behind.tsv","w")
+output_file.write("Student name\tEmail\tMentor Name\tEmail\n")
 for student in mentees:
 	result_text = student['name'] + "\t" + student['email'] + "\t" + student['link']['name'] + "\t" + student['link']['email'] + "\t" + student['school'] + "\t" + student['link']['school'] + "\n"
 	output_file.write(result_text)
-output_file.close() 
-
+output_file.close()
